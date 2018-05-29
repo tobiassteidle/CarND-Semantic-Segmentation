@@ -51,8 +51,27 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # TODO: Implement function
-    return None
+    # Create 1x1 Convolution
+    conv3_1x1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    conv4_1x1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    conv7_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    # Upsampling 32x
+    upsampling_32x = tf.layers.conv2d_transpose(conv7_1x1, num_classes, 4, strides=(2, 2), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    # Skip Connection
+    skip_add_1 = tf.add(upsampling_32x, conv4_1x1)
+
+    # Upsampling 16x
+    upsampling_16x = tf.layers.conv2d_transpose(skip_add_1, num_classes, 4, strides=(2, 2), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    # Skip Connection
+    skip_add_2 = tf.add(upsampling_16x, conv3_1x1)
+
+    # Upsampling 8x
+    output = tf.layers.conv2d_transpose(skip_add_2, num_classes, 32, strides=(8, 8), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    return output
 tests.test_layers(layers)
 
 
@@ -66,6 +85,8 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
+    
+
     return None, None, None
 tests.test_optimize(optimize)
 
