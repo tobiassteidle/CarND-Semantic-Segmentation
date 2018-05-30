@@ -106,12 +106,13 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 tests.test_optimize(optimize)
 
 
-def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+def train_nn(sess, tf_file_writer, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
              correct_label, keep_prob, learning_rate):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
     :param epochs: Number of epochs
+    :param tf_file_writer: Writer for Tensorboard
     :param batch_size: Batch size
     :param get_batches_fn: Function to get batches of training data.  Call using get_batches_fn(batch_size)
     :param train_op: TF Operation to train the neural network
@@ -122,25 +123,36 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
 
+    # Create a summary to monitor cost tensor
+    tf.summary.scalar("cross_entropy_loss", cross_entropy_loss)
+
+    # Create a summary to monitor accuracy tensor
+    #tf.summary.scalar("accuracy", acc)
+
+    # Merge all summaries into a single op
+    merged_summary_op = tf.summary.merge_all()
+
     print('Starting training... for {} epochs'.format(epochs))
     print()
     for epoch in range(epochs):
         print('Epoch : {}'.format(epoch + 1))
         loss_log = []
         for image, label in get_batches_fn(batch_size):
-            _, loss = sess.run([train_op, cross_entropy_loss],
+            _, loss, summary = sess.run([train_op, cross_entropy_loss, merged_summary_op],
                                feed_dict={
                                    input_image: image,
                                    correct_label: label,
                                    keep_prob: 0.5,
                                    learning_rate: 0.00001
                                })
+
+            if tf_file_writer is not None:
+                tf_file_writer.add_summary(summary, epoch + 1)
+
             loss_log.append('{:3f}'.format(loss))
         print(loss_log)
         print()
     print('Training finished')
-
-
     pass
 tests.test_train_nn(train_nn)
 
@@ -152,6 +164,7 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
+    log_dir = runs_dir + '/tf_logs'
     tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
@@ -181,12 +194,13 @@ def run():
         logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
 
         saver = tf.train.Saver()
+        tf_file_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
 
         # TODO: Train NN using the train_nn function
         sess.run(tf.global_variables_initializer())
 
-        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image, correct_label,
-                 keep_prob, learning_rate)
+        train_nn(sess, tf_file_writer, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+                 correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
@@ -194,8 +208,8 @@ def run():
         # save trained model
         saver.save(sess, './runs/semseg_model.ckpt')
 
-        file_writer = tf.summary.FileWriter('./tf_logs', tf.get_default_graph())
-        file_writer.close()
+        # close tensorboard writer
+        tf_file_writer.close()
 
         # OPTIONAL: Apply the trained model to a video
 

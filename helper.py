@@ -1,3 +1,5 @@
+import cv2
+import math
 import re
 import random
 import numpy as np
@@ -10,7 +12,6 @@ import tensorflow as tf
 from glob import glob
 from urllib.request import urlretrieve
 from tqdm import tqdm
-
 
 class DLProgress(tqdm):
     last_block = 0
@@ -58,6 +59,46 @@ def maybe_download_pretrained_vgg(data_dir):
         os.remove(os.path.join(vgg_path, vgg_filename))
 
 
+def increase_brightness(img, value=30):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+
+    lim = 255 - value
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
+
+def rotate_images(image, gt_image, angle):
+    def rotate(mat, angle, mask=False):
+        height, width = mat.shape[:2]
+        image_center = (width / 2, height / 2)
+
+        rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1)
+
+        radians = math.radians(angle)
+        sin = math.sin(radians)
+        cos = math.cos(radians)
+        bound_w = int((height * abs(sin)) + (width * abs(cos)))
+        bound_h = int((height * abs(cos)) + (width * abs(sin)))
+
+        rotation_mat[0, 2] += ((bound_w / 2) - image_center[0])
+        rotation_mat[1, 2] += ((bound_h / 2) - image_center[1])
+
+        rotated_mat = cv2.warpAffine(mat, rotation_mat, (bound_w, bound_h))
+
+        if mask:
+            lower = np.array([0, 0, 0])
+            upper = np.array([250, 250, 250])
+            mask = cv2.inRange(rotated_mat, lower, upper)
+            rotated_mat[mask == 255] = [255, 0, 0]
+
+        return rotated_mat
+
+    return rotate(image, angle), rotate(gt_image, angle, True)
+
 def gen_batch_function(data_folder, image_shape):
     """
     Generate function to create batches of training data
@@ -87,16 +128,30 @@ def gen_batch_function(data_folder, image_shape):
                 image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
                 gt_image = scipy.misc.imresize(scipy.misc.imread(gt_image_file), image_shape)
 
+                if np.random.random() > 0.5:
+                    brightness = random.randint(10, 40)
+                    image = increase_brightness(image, brightness)
+
+                if np.random.random() > 0.5:
+                    angle = random.randint(2, 10)
+                    image, gt_image = rotate_images(image, gt_image, angle)
+                    image = scipy.misc.imresize(image, image_shape)
+                    gt_image = scipy.misc.imresize(gt_image, image_shape)
+
+                if np.random.random() > 0.5:
+                    image = cv2.flip(image, 1)
+                    gt_image = cv2.flip(gt_image, 1)
+                    image = scipy.misc.imresize(image, image_shape)
+                    gt_image = scipy.misc.imresize(gt_image, image_shape)
+
                 gt_bg = np.all(gt_image == background_color, axis=2)
                 gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
-                gt_image = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
 
                 images.append(image)
-                gt_images.append(gt_image)
-
+                gt_images.append(gt_image_insert)
             yield np.array(images), np.array(gt_images)
     return get_batches_fn
-
 
 def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape):
     """
