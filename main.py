@@ -56,11 +56,13 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-    conv4_1x1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, strides=(1, 1), padding='SAME',
+    pool4_out_scaled = tf.multiply(vgg_layer4_out, 0.01, name='pool4_out_scaled')
+    conv4_1x1 = tf.layers.conv2d(pool4_out_scaled, num_classes, 1, strides=(1, 1), padding='SAME',
                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-    conv3_1x1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, strides=(1, 1), padding='SAME',
+    pool3_out_scaled = tf.multiply(vgg_layer3_out, 0.0001, name='pool3_out_scaled')
+    conv3_1x1 = tf.layers.conv2d(pool3_out_scaled, num_classes, 1, strides=(1, 1), padding='SAME',
                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
@@ -126,16 +128,13 @@ def train_nn(sess, tf_file_writer, epochs, batch_size, get_batches_fn, train_op,
     # Create a summary to monitor cost tensor
     tf.summary.scalar("cross_entropy_loss", cross_entropy_loss)
 
-    # Create a summary to monitor accuracy tensor
-    #tf.summary.scalar("accuracy", acc)
-
     # Merge all summaries into a single op
     merged_summary_op = tf.summary.merge_all()
 
     print('Starting training... for {} epochs'.format(epochs))
     print()
     for epoch in range(epochs):
-        print('Epoch : {}'.format(epoch + 1))
+        print('Epoch : {}/{}'.format(epoch + 1, epochs))
         loss_log = []
         for image, label in get_batches_fn(batch_size):
             _, loss, summary = sess.run([train_op, cross_entropy_loss, merged_summary_op],
@@ -159,8 +158,8 @@ tests.test_train_nn(train_nn)
 
 def run():
     num_classes = 2
-    epochs = 50
-    batch_size = 5
+    epochs = 45
+    batch_size = 4
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
@@ -184,6 +183,8 @@ def run():
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
+
+        # Augmentations implemented in gen_batch_function()
 
         # TODO: Build NN using load_vgg, layers, and optimize function
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
@@ -212,7 +213,6 @@ def run():
         tf_file_writer.close()
 
         # OPTIONAL: Apply the trained model to a video
-
 
 if __name__ == '__main__':
     run()

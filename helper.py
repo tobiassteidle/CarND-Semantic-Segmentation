@@ -129,27 +129,49 @@ def gen_batch_function(data_folder, image_shape):
                 gt_image = scipy.misc.imresize(scipy.misc.imread(gt_image_file), image_shape)
 
                 if np.random.random() > 0.5:
-                    brightness = random.randint(10, 40)
-                    image = increase_brightness(image, brightness)
-
-                if np.random.random() > 0.5:
-                    angle = random.randint(2, 10)
-                    image, gt_image = rotate_images(image, gt_image, angle)
-                    image = scipy.misc.imresize(image, image_shape)
-                    gt_image = scipy.misc.imresize(gt_image, image_shape)
-
-                if np.random.random() > 0.5:
+                    # normal image
+                    gt_bg = np.all(gt_image == background_color, axis=2)
+                    gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
+                    gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                    images.append(image)
+                    gt_images.append(gt_image_insert)
+                else:
+                    # flipped image
                     image = cv2.flip(image, 1)
                     gt_image = cv2.flip(gt_image, 1)
                     image = scipy.misc.imresize(image, image_shape)
                     gt_image = scipy.misc.imresize(gt_image, image_shape)
 
-                gt_bg = np.all(gt_image == background_color, axis=2)
-                gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
-                gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                    gt_bg = np.all(gt_image == background_color, axis=2)
+                    gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
+                    gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                    images.append(image)
+                    gt_images.append(gt_image_insert)
 
-                images.append(image)
-                gt_images.append(gt_image_insert)
+                if np.random.random() > 0.5:
+                    # random brightness
+                    brightness = random.randint(10, 60)
+                    image = increase_brightness(image, brightness)
+
+                    gt_bg = np.all(gt_image == background_color, axis=2)
+                    gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
+                    gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                    images.append(image)
+                    gt_images.append(gt_image_insert)
+
+                if np.random.random() > 0.5:
+                    # random rotate
+                    angle = random.randint(2, 15)
+                    image, gt_image = rotate_images(image, gt_image, angle)
+                    image = scipy.misc.imresize(image, image_shape)
+                    gt_image = scipy.misc.imresize(gt_image, image_shape)
+
+                    gt_bg = np.all(gt_image == background_color, axis=2)
+                    gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
+                    gt_image_insert = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
+                    images.append(image)
+                    gt_images.append(gt_image_insert)
+
             yield np.array(images), np.array(gt_images)
     return get_batches_fn
 
