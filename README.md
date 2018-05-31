@@ -5,10 +5,10 @@ Self-Driving Car Engineer Nanodegree Program
 ![Video](images/semantic_segmentation.gif)
 
 ##### Result Images (Samples)
-![Sample1](images/runs/umm_000006.png)
-![Sample2](images/runs/umm_000015.png)
-![Sample2](images/runs/umm_000034.png)
-![Sample2](images/runs/umm_000050.png)
+![Sample1](images/run/umm_000006.png)
+![Sample2](images/run/umm_000015.png)
+![Sample2](images/run/umm_000034.png)
+![Sample2](images/run/umm_000050.png)
 
 ##### Tensorflow Graph
 ![Tensorflow](images/tensorflow_graph.png)
